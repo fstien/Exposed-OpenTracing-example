@@ -1,11 +1,21 @@
 package com.github.fstien
 
+import com.github.fstien.exposed.opentracing.NoPII
+import com.github.fstien.exposed.opentracing.tracedTransaction
 import com.zopa.ktor.opentracing.span
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 
 class UserRepository {
+
+    init {
+        Database.connect("jdbc:h2:mem:test;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
+
+        tracedTransaction(contains = NoPII) {
+            SchemaUtils.create(Users)
+        }
+    }
 
     fun add(user: User) = span("UserRepository.add()") {
         transaction {
