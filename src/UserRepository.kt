@@ -1,6 +1,7 @@
 package com.github.fstien
 
 import com.github.fstien.exposed.opentracing.NoPII
+import com.github.fstien.exposed.opentracing.PII
 import com.github.fstien.exposed.opentracing.tracedTransaction
 import com.zopa.ktor.opentracing.span
 import org.jetbrains.exposed.dao.id.IntIdTable
@@ -18,7 +19,7 @@ class UserRepository {
     }
 
     fun add(user: User) = span("UserRepository.add()") {
-        transaction {
+        tracedTransaction(contains = PII, user.username, user.password) {
             Users.insert {
                 it[username] = user.username
                 it[age] = user.age
@@ -28,13 +29,13 @@ class UserRepository {
     }
 
     fun get(username: String): User? = span("UserRepository.get()") {
-        val user = transaction {
+        val user = tracedTransaction(contains = PII, username) {
             Users.select { Users.username eq username }
         }
 
         if (user.fetchSize == 0) return null
 
-        val userRow = transaction {
+        val userRow = tracedTransaction(contains = NoPII) {
             user.first()
         }
 
@@ -42,7 +43,7 @@ class UserRepository {
     }
 
     fun delete(username: String) {
-        transaction {
+        tracedTransaction(contains = PII, username) {
             Users.deleteWhere {
                 Users.username eq username
             }
