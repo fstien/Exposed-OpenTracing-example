@@ -6,7 +6,6 @@ import com.github.fstien.exposed.opentracing.tracedTransaction
 import com.zopa.ktor.opentracing.span
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.transactions.transaction
 
 class UserRepository {
 
@@ -20,6 +19,13 @@ class UserRepository {
 
     fun add(user: User) = span("UserRepository.add()") {
         tracedTransaction(contains = PII, user.username, user.password) {
+            val existingUser = Users.select { Users.username eq user.username }
+                    .firstOrNull()
+
+            if(existingUser != null) {
+                return@tracedTransaction
+            }
+
             Users.insert {
                 it[username] = user.username
                 it[age] = user.age
@@ -31,15 +37,10 @@ class UserRepository {
     fun get(username: String): User? = span("UserRepository.get()") {
         val user = tracedTransaction(contains = PII, username) {
             Users.select { Users.username eq username }
-        }
+                .firstOrNull()
+        } ?: return null
 
-        if (user.fetchSize == 0) return null
-
-        val userRow = tracedTransaction(contains = NoPII) {
-            user.first()
-        }
-
-        return User(userRow[Users.username], userRow[Users.age], userRow[Users.password])
+        return User(user[Users.username], user[Users.age], user[Users.password])
     }
 
     fun delete(username: String) {
